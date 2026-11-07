@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.wrangler/
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+.env
+.env.*
+*.log
+.DS_Store
+
+# Agent skills are restored from skills-lock.json (npx skills experimental_install)
+.agents/
+.claude/skills/
+wrangler.deploy.jsonc

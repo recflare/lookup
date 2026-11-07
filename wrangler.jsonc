@@ -1,0 +1,37 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "roomindex",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-07",
+  // nodejs_compat is required by Postgres drivers.
+  "compatibility_flags": ["nodejs_compat"],
+  // Only secrets listed here are loaded from .env during `wrangler dev` and
+  // typed into Env; the Hyperdrive/psql connection strings in .env are for
+  // tooling, not for the Worker.
+  "secrets": { "required": [] },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  // Hyperdrive pools connections to the Postgres database and keeps the
+  // credentials out of this file. Create it once with:
+  //   npx wrangler hyperdrive create roomindex-db --connection-string="postgres://..."
+  // and put the returned id in .env as HYPERDRIVE_ID. `npm run deploy` swaps
+  // it in; the placeholder below is never deployed.
+  //
+  // For `wrangler dev`, the connection string comes from the
+  // CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE variable in .env
+  // (see .env.example), so no password is needed here.
+  // Static UI. Requests that match a file in ./public are served directly;
+  // everything else (including /api/*) reaches the Worker.
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "HYPERDRIVE_ID_FROM_ENV"
+    }
+  ]
+}

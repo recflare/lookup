@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>roomindex</title>
+  <meta name="description" content="Look up archived Rec Room rooms by name or by blob key, and see everything stored about them.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="/">roomindex</a>
+    <form class="search" id="search" role="search">
+      <div class="mode" role="radiogroup" aria-label="Search by">
+        <label><input type="radio" name="by" value="name" checked><span>Name</span></label>
+        <label><input type="radio" name="by" value="blob"><span>Blob</span></label>
+      </div>
+      <input class="query" id="q" name="q" type="search" autocomplete="off" spellcheck="false"
+             placeholder="Room name, or a blob key like 13pcfb752scyh8j7eozjpqbsh.room" aria-label="Search">
+      <button type="submit">Search</button>
+    </form>
+  </header>
+
+  <main class="layout" id="layout">
+    <section class="results" id="results" aria-live="polite">
+      <div class="empty">
+        <p>Search rooms by name, or paste a save blob key or hash to find out which room it belongs to.</p>
+        <p class="hint">Blob keys look like <code>13pcfb752scyh8j7eozjpqbsh.room</code>. Room metadata blobs look like <code>room/…​.meta</code>. Hashes are the base64 strings next to them.</p>
+      </div>
+    </section>
+    <section class="detail" id="detail">
+      <div class="empty quiet"><p>Pick a room to see everything stored about it.</p></div>
+    </section>
+  </main>
+
+  <footer class="credits">
+    <p>Credits: <b>Studio 87</b>. A mirror of Rec Room CDN material:
+      <a href="https://archive.org/details/recroomcdnimages" rel="noopener">archive.org/details/recroomcdnimages</a>.</p>
+  </footer>
+
+  <template id="tpl-result">
+    <article class="card" tabindex="0" role="button">
+      <img class="thumb" alt="" loading="lazy">
+      <div class="card-body">
+        <h3 class="card-title"></h3>
+        <p class="card-meta"></p>
+        <p class="card-desc"></p>
+        <ul class="chips tags"></ul>
+        <div class="matches"></div>
+      </div>
+    </article>
+  </template>
+
+  <script src="/app.js" defer></script>
+</body>
+</html>
