@@ -19,7 +19,7 @@ export interface RoomSummary extends Row {
 }
 
 export interface BlobMatch {
-  kind: "save" | "room_meta" | "asset_bundle";
+  kind: "save" | "room_meta" | "asset_bundle" | "account";
   matched_key: string | null;
   matched_hash: string | null;
   subroom_id?: string;
@@ -28,6 +28,11 @@ export interface BlobMatch {
   save_created_at?: string | null;
   unity_asset_id?: string;
   bundle_target?: number;
+  /** Account search: how the account relates to the room. */
+  account_id?: string;
+  relation?: "creator" | "role" | "saves" | "subroom_creator";
+  role?: number | null;
+  count?: number | null;
 }
 
 export interface SearchResult extends RoomSummary {
@@ -162,6 +167,69 @@ export async function searchByBlob(sql: Sql, q: string): Promise<SearchResult[]>
     });
   }
   return [...byRoom.values()];
+}
+
+const ACCOUNT_LIMIT = 200;
+
+/**
+ * Rooms connected to an account: created by it, where it holds a role, whose
+ * subrooms it created, or where it saved. `q` is an account id, or a username
+ * when the optional accounts table exists.
+ */
+export async function searchByAccount(sql: Sql, q: string): Promise<SearchResult[]> {
+  const term = q.trim();
+  if (!term) return [];
+  let ids: string[];
+  if (/^\d{1,19}$/.test(term)) {
+    ids = [term];
+  } else {
+    const has = await optionalTables(sql);
+    if (!has.accounts) return [];
+    const rows = await sql<{ account_id: string }[]>`
+      select account_id::text as account_id from accounts
+      where lower(username) = ${term.toLowerCase()} or lower(display_name) = ${term.toLowerCase()}
+      limit 10
+    `;
+    ids = rows.map((r) => r.account_id);
+    if (ids.length === 0) return [];
+  }
+
+  type Hit = RoomSummary & { account_matches: { account_id: string; kind: BlobMatch["relation"]; role: number | null; n: number | null }[] };
+  const rows = await sql<Hit[]>`
+    with hits as (
+      select r.id as room_id, r.creator_account_id as account_id, 'creator' as kind, null::int as role, null::int as n
+      from rooms r where r.creator_account_id in ${sql(ids)}
+      union all
+      select rr.room_id, rr.account_id, 'role', rr.role, null
+      from room_roles rr where rr.account_id in ${sql(ids)}
+      union all
+      select sr.room_id, sr.creator_account_id, 'subroom_creator', null, count(*)::int
+      from subrooms sr where sr.creator_account_id in ${sql(ids)} group by sr.room_id, sr.creator_account_id
+      union all
+      select sr.room_id, s.saved_by_account_id, 'saves', null, count(*)::int
+      from subroom_saves s join subrooms sr on sr.id = s.subroom_id
+      where s.saved_by_account_id in ${sql(ids)} group by sr.room_id, s.saved_by_account_id
+    )
+    select ${summaryColumns(sql)},
+           jsonb_agg(jsonb_build_object('account_id', h.account_id::text, 'kind', h.kind, 'role', h.role, 'n', h.n)) as account_matches
+    from hits h join rooms r on r.id = h.room_id
+    group by r.id
+    order by max(case h.kind when 'creator' then 3 when 'role' then 2 when 'subroom_creator' then 1 else 0 end) desc,
+             r.created_at desc nulls last, r.id
+    limit ${ACCOUNT_LIMIT}
+  `;
+  return rows.map(({ account_matches, ...room }) => ({
+    ...(room as RoomSummary),
+    matches: account_matches.map((m) => ({
+      kind: "account" as const,
+      matched_key: null,
+      matched_hash: null,
+      account_id: m.account_id,
+      relation: m.kind,
+      role: m.role,
+      count: m.n,
+    })),
+  }));
 }
 
 export interface RoomDetail {

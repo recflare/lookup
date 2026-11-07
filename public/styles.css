@@ -118,6 +118,9 @@ code, .mono { font-family: var(--mono); font-size: 0.92em; }
 }
 .match .key { font-family: var(--mono); background: var(--mark); color: var(--mark-ink); padding: 0 4px; border-radius: 3px; overflow-wrap: anywhere; }
 .match .chain { color: var(--ink-2); }
+.match.account { background: var(--surface-2); border-left-color: var(--accent); }
+a.mono { color: var(--accent); text-decoration: none; }
+a.mono:hover { text-decoration: underline; }
 
 /* Detail ----------------------------------------------------------------- */
 .room { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }

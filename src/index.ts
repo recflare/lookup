@@ -1,5 +1,5 @@
 import { createDb } from "./db";
-import { getRoom, searchByBlob, searchByName } from "./queries";
+import { getRoom, searchByAccount, searchByBlob, searchByName } from "./queries";
 
 /**
  * roomindex Worker.
@@ -7,7 +7,8 @@ import { getRoom, searchByBlob, searchByName } from "./queries";
  * API:
  *   GET /api/health              - round-trips to Postgres through Hyperdrive
  *   GET /api/search?by=name&q=   - rooms whose name contains q (or id / source id)
- *   GET /api/search?by=blob&q=   - rooms owning a save or meta blob with key/hash q
+ *   GET /api/search?by=blob&q=   - rooms owning a save, meta, or asset-bundle blob with key/hash q
+ *   GET /api/search?by=account&q= - rooms created, owned, or saved by an account id (or username)
  *   GET /api/rooms/:id           - everything stored about one room
  * Everything else is served from ./public (static assets).
  */
@@ -56,8 +57,11 @@ async function route(url: URL, sql: Sql): Promise<Response> {
     const by = url.searchParams.get("by") ?? "name";
     if (!q) return error(400, "q is required");
     if (q.length > 200) return error(400, "q is too long");
-    if (by !== "name" && by !== "blob") return error(400, "by must be name or blob");
-    const results = by === "name" ? await searchByName(sql, q) : await searchByBlob(sql, q);
+    if (by !== "name" && by !== "blob" && by !== "account") return error(400, "by must be name, blob, or account");
+    const results =
+      by === "name" ? await searchByName(sql, q)
+      : by === "blob" ? await searchByBlob(sql, q)
+      : await searchByAccount(sql, q);
     return cached({ by, q, count: results.length, results });
   }
 

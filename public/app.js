@@ -60,8 +60,13 @@
     if (/_at$/.test(key) && typeof v === "string") return esc(fmtDate(v));
     if (/size_bytes$/.test(key)) return `${esc(fmtBytes(v))} <span class="null">(${esc(v)})</span>`;
     if (typeof v === "object") return `<pre class="json">${esc(JSON.stringify(v, null, 2))}</pre>`;
+    if (/(account_id|creator_player_id|user_id)$/.test(key)) return `${accountLink(v)}${copyBtn(v)}`;
     if (/(_key|_hash|sha256|_id|filename|replication_id|ranked_entity_id)$/.test(key)) return `<span class="mono">${esc(v)}</span>${copyBtn(v)}`;
     return esc(v);
+  }
+
+  function accountLink(id) {
+    return `<a class="mono" href="/?by=account&q=${encodeURIComponent(id)}" title="Rooms for this account">${esc(id)}</a>`;
   }
 
   function copyBtn(text) {
@@ -101,7 +106,8 @@
 
   function readState() {
     const p = new URLSearchParams(location.search);
-    return { q: p.get("q") || "", by: p.get("by") === "blob" ? "blob" : "name", room: p.get("room") || "" };
+    const by = ["name", "blob", "account"].includes(p.get("by")) ? p.get("by") : "name";
+    return { q: p.get("q") || "", by, room: p.get("room") || "" };
   }
 
   function writeState(state, push) {
@@ -143,12 +149,15 @@
       results.innerHTML = `<div class="empty"><p>No rooms match <b>${esc(data.q)}</b> by ${data.by}.</p>
         <p class="hint">${data.by === "blob"
           ? "Try the bare key without its suffix, or the base64 hash. Keys are case-sensitive."
+          : data.by === "account"
+          ? "Enter the numeric account id. Usernames only work when the accounts table is loaded."
           : "Name search is case-insensitive and matches anywhere in the name. Room ids also work."}</p></div>`;
       return;
     }
     const head = document.createElement("div");
     head.className = "status";
-    head.textContent = `${data.count} room${data.count === 1 ? "" : "s"}${data.count >= 50 ? " (first 50)" : ""}`;
+    const cap = data.by === "account" ? 200 : 50;
+    head.textContent = `${data.count} room${data.count === 1 ? "" : "s"}${data.count >= cap ? ` (first ${cap})` : ""}`;
     results.appendChild(head);
 
     for (const r of data.results) {
@@ -170,13 +179,24 @@
       if (r.tags && r.tags.length) tags.innerHTML = r.tags.slice(0, 8).map((t) => `<li>${esc(t)}</li>`).join("");
       else tags.remove();
       const m = $(".matches", node);
-      if (r.matches && r.matches.length) m.innerHTML = r.matches.map(matchHtml).join("");
-      else m.remove();
+      if (r.matches && r.matches.length) {
+        const accountRelations = r.matches.filter((x) => x.kind === "account");
+        m.innerHTML = accountRelations.length
+          ? `<div class="match account"><span class="chain">${accountRelations.map(relationText).map(esc).join(" · ")}</span></div>`
+          : r.matches.map(matchHtml).join("");
+      } else m.remove();
       node.addEventListener("click", () => openRoom(r.id, r.matches || [], true));
       node.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openRoom(r.id, r.matches || [], true); } });
       results.appendChild(node);
     }
     markActive();
+  }
+
+  function relationText(m) {
+    return m.relation === "creator" ? "created this room"
+      : m.relation === "role" ? `holds ${roleName(m.role)}`
+      : m.relation === "subroom_creator" ? `created ${m.count} subroom${m.count === 1 ? "" : "s"}`
+      : `saved ${m.count} time${m.count === 1 ? "" : "s"}`;
   }
 
   function matchHtml(m) {
@@ -257,8 +277,8 @@
     const assetsById = new Map((d.unity_assets || []).map((a) => [a.unity_asset_id, a]));
 
     const creator = d.creator
-      ? `${esc(d.creator.display_name || d.creator.username || "")} <span class="mono">${esc(d.creator.account_id)}</span>`
-      : r.creator_account_id ? `account <span class="mono">${esc(r.creator_account_id)}</span>` : '<span class="null">unknown</span>';
+      ? `${esc(d.creator.display_name || d.creator.username || "")} ${accountLink(d.creator.account_id)}`
+      : r.creator_account_id ? `account ${accountLink(r.creator_account_id)}` : '<span class="null">unknown</span>';
 
     const facts = [
       `<span>creator <b>${creator}</b></span>`,
@@ -335,15 +355,15 @@
     // Roles
     const rolesHtml = d.roles.length
       ? `<table><tr><th>account</th><th>name</th><th>role</th><th>invited role</th><th>changed by</th></tr>
-        ${d.roles.map((x) => `<tr><td class="mono">${esc(x.account_id)}</td><td>${esc(x.display_name || x.username || "")}</td>
-          <td>${esc(roleName(x.role))}</td><td>${x.invited_role ? esc(roleName(x.invited_role)) : ""}</td><td class="mono">${esc(x.last_changed_by_account_id || "")}</td></tr>`).join("")}</table>
+        ${d.roles.map((x) => `<tr><td>${accountLink(x.account_id)}</td><td>${esc(x.display_name || x.username || "")}</td>
+          <td>${esc(roleName(x.role))}</td><td>${x.invited_role ? esc(roleName(x.invited_role)) : ""}</td><td>${x.last_changed_by_account_id ? accountLink(x.last_changed_by_account_id) : ""}</td></tr>`).join("")}</table>
         ${d.roles_total > d.roles.length ? `<p class="note">Showing ${d.roles.length} of ${d.roles_total}.</p>` : ""}`
       : '<p class="null">No roles recorded.</p>';
 
     // Inventions
     const invHtml = d.inventions.length
       ? `<table><tr><th>id</th><th>name</th><th>creator</th><th>published</th><th>downloads</th><th>cheers</th><th>created</th></tr>
-        ${d.inventions.map((i) => `<tr><td class="mono">${esc(i.source_invention_id || i.id)}</td><td>${esc(i.name)}</td><td class="mono">${esc(i.creator_player_id || "")}</td>
+        ${d.inventions.map((i) => `<tr><td class="mono">${esc(i.source_invention_id || i.id)}</td><td>${esc(i.name)}</td><td>${i.creator_player_id ? accountLink(i.creator_player_id) : ""}</td>
           <td>${cell("is_published", i.is_published)}</td><td>${esc(fmtNum(i.num_downloads))}</td><td>${esc(fmtNum(i.cheer_count))}</td><td>${esc(fmtDate(i.created_at) || "")}</td></tr>`).join("")}</table>
         ${d.inventions_total > d.inventions.length ? `<p class="note">Showing ${d.inventions.length} of ${d.inventions_total}.</p>` : ""}`
       : '<p class="null">No inventions were created in this room.</p>';

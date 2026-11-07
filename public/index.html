@@ -17,9 +17,10 @@
       <div class="mode" role="radiogroup" aria-label="Search by">
         <label><input type="radio" name="by" value="name" checked><span>Name</span></label>
         <label><input type="radio" name="by" value="blob"><span>Blob</span></label>
+        <label><input type="radio" name="by" value="account"><span>Account</span></label>
       </div>
       <input class="query" id="q" name="q" type="search" autocomplete="off" spellcheck="false"
-             placeholder="Room name, or a blob key like 13pcfb752scyh8j7eozjpqbsh.room" aria-label="Search">
+             placeholder="Room name, a blob key like 13pcfb752scyh8j7eozjpqbsh.room, or an account id" aria-label="Search">
       <button type="submit">Search</button>
     </form>
   </header>
@@ -27,7 +28,7 @@
   <main class="layout" id="layout">
     <section class="results" id="results" aria-live="polite">
       <div class="empty">
-        <p>Search rooms by name, or paste a save blob key or hash to find out which room it belongs to.</p>
+        <p>Search rooms by name, paste a save blob key or hash to find out which room it belongs to, or enter an account id to list every room it created, owns, or saved in.</p>
         <p class="hint">Blob keys look like <code>13pcfb752scyh8j7eozjpqbsh.room</code>. Room metadata blobs look like <code>room/…​.meta</code>. Hashes are the base64 strings next to them.</p>
       </div>
     </section>

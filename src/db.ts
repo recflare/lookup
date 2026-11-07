@@ -11,8 +11,10 @@ export type Sql = ReturnType<typeof postgres>;
  */
 export function createDb(env: Env): Sql {
   return postgres(connectionUrl(env.HYPERDRIVE), {
-    // Workers cap concurrent outbound connections; keep this small.
-    max: 5,
+    // Workers cap concurrent outbound connections, and in local development
+    // every connection is a real session on the database's pooler, which
+    // Supabase caps per plan (session-mode "max clients"). Keep this small.
+    max: 3,
     // Skip the extra round-trip to fetch array type OIDs. Enable if the
     // schema uses array columns and you need them parsed.
     fetch_types: false,

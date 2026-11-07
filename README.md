@@ -1,7 +1,7 @@
 # roomindex
 
-Search archived Rec Room rooms by name or by blob key, and see everything stored about
-them. A Cloudflare Worker serves a static UI from `public/` and a JSON API backed by a
+Search archived Rec Room rooms by name, by blob key, or by account, and see everything
+stored about them. A Cloudflare Worker serves a static UI from `public/` and a JSON API backed by a
 Postgres database (Supabase in the original setup, but any Postgres works), connected
 through Hyperdrive with the `postgres` (Postgres.js) driver.
 
@@ -68,6 +68,12 @@ because workerd's local binding inserts them raw into `connectionString`.
 `wrangler dev` reads the Hyperdrive connection string for local development from
 `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE` in `.env`.
 
+Supabase's session pooler allows only a handful of concurrent clients on small plans,
+and in local development every Worker connection is one of them. The API opens at most
+3 per request; if you see `max clients reached in session mode`, wait a moment or point
+the Hyperdrive config for production at the direct host so it does not share the pooler
+with local development.
+
 ### Loading a database dump
 
 `scripts/restore-dump.sh` restores a pg_dump custom-format archive using `DATABASE_URL`
@@ -82,8 +88,8 @@ npm run db:restore -- path/to/backup.dump --clean --if-exists
 
 ### Database indexes
 
-`db/migrations/0001_search_indexes.sql` adds pg_trgm (for `ILIKE` name search) and
-B-tree indexes on the blob keys and hashes. It is idempotent:
+`db/migrations/` adds pg_trgm (for `ILIKE` name search) and B-tree indexes on the blob
+keys, hashes, and account columns. The migrations are idempotent:
 
 ```bash
 npm run db:migrate
@@ -125,6 +131,7 @@ of the Worker if the data should not be.
 | `GET /api/health`              | Runs a query through Hyperdrive, reports table count           |
 | `GET /api/search?by=name&q=…`  | Rooms whose name contains `q` (case-insensitive), or whose id / source id equals it. First 50. |
 | `GET /api/search?by=blob&q=…`  | Rooms owning a subroom save, a room-meta blob, or a unity asset bundle whose key or hash is `q`. Accepts `abc`, `abc.room`, `room/abc.meta`, `abc.assetbundle`, or the base64 hash. |
+| `GET /api/search?by=account&q=…` | Rooms an account created, holds a role in, created subrooms in, or saved in. `q` is an account id, or a username when the `accounts` table exists. First 200, creators first. |
 | `GET /api/rooms/:id`           | Room row, tags, roles (first 500), subrooms with every save, each save's source unity asset with its bundles and subasset count, inventions created there (first 200), raw JSON. |
 
 ## Scripts
